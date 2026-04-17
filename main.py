@@ -1,88 +1,94 @@
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
-from pydantic import BaseModel
-import uuid
-import sqlite3
-from datetime import datetime
 import os
+import uuid
+import datetime
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 app = FastAPI()
 
-# --- CONFIGURATION DE LA BASE DE DONNÉES ---
-DB_NAME = "aura_database.db"
+# --- CONFIGURATION DES BASES DE DONNÉES ---
+# Render fournit 'DATABASE_URL'. Sur ton PC, on utilisera tes identifiants locaux.
+DATABASE_URL = os.environ.get('DATABASE_URL')
 
+def get_db_connection():
+    if DATABASE_URL:
+        # CONNEXION RENDER (EN LIGNE)
+        return psycopg2.connect(DATABASE_URL, sslmode='require')
+    else:
+        # CONNEXION LOCALE (TON PC)
+        # Remplace 'postgres' et 'ton_mot_de_passe' par tes vrais identifiants
+        return psycopg2.connect(
+            host="localhost",
+            database="aura_db", 
+            user="postgres",
+            password="ton_mot_de_passe" 
+        )
+
+# --- INITIALISATION DE LA TABLE ---
 def init_db():
-    """Crée la base de données et la table des certificats si elles n'existent pas."""
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute('''
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute('''
         CREATE TABLE IF NOT EXISTS certificates (
-            id TEXT PRIMARY KEY,
-            entity_name TEXT,
-            entity_type TEXT,
-            issue_date TEXT,
-            status TEXT
+            id SERIAL PRIMARY KEY,
+            cert_id TEXT UNIQUE NOT NULL,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL,
+            date TEXT NOT NULL
         )
     ''')
     conn.commit()
+    cur.close()
     conn.close()
 
-# On lance l'initialisation au démarrage
 init_db()
 
 # --- MODÈLES DE DONNÉES ---
-class CertRequest(BaseModel):
+class CertificateRequest(BaseModel):
     name: str
     type: str
 
-# --- ROUTES (LES COMMANDES DU SERVEUR) ---
-
-@app.get("/")
-async def read_index():
-    """Affiche votre site web. Assurez-vous que le fichier s'appelle bien index.html"""
-    if os.path.exists("index.html"):
-        return FileResponse('index.html')
-    else:
-        # Petit message d'erreur sympa si le fichier est mal nommé
-        return {"error": "Fichier index.html introuvable. Vérifiez qu'il ne s'appelle pas index.html.html"}
+# --- ROUTES API ---
 
 @app.post("/certify")
-async def certify_endpoint(request: CertRequest):
-    """Génère un certificat unique et l'enregistre dans la base de données."""
+async def create_certificate(req: CertificateRequest):
     cert_id = f"AURA-{uuid.uuid4().hex[:8].upper()}"
-    date_now = datetime.now().strftime("%d/%m/%Y %H:%M")
+    date_str = datetime.datetime.now().strftime("%d/%m/%Y")
     
     try:
-        conn = sqlite3.connect(DB_NAME)
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO certificates (id, entity_name, entity_type, issue_date, status) VALUES (?, ?, ?, ?, ?)",
-            (cert_id, request.name, request.type, date_now, "VERIFIED_ACTIVE")
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO certificates (cert_id, name, type, date) VALUES (%s, %s, %s, %s)",
+            (cert_id, req.name, req.type, date_str)
         )
         conn.commit()
+        cur.close()
         conn.close()
-        return {"cert_id": cert_id, "status": "SUCCESS", "date": date_now}
+        return {"cert_id": cert_id}
     except Exception as e:
-        return {"status": "ERROR", "message": str(e)}
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/verify/{cert_id}")
-async def verify_cert(cert_id: str):
-    """Permet de vérifier si un certificat existe dans votre registre."""
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM certificates WHERE id = ?", (cert_id,))
-    result = cursor.fetchone()
+async def verify_certificate(cert_id: str):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute("SELECT name, type, date FROM certificates WHERE cert_id = %s", (cert_id,))
+    cert = cur.fetchone()
+    cur.close()
     conn.close()
     
-    if result:
-        return {
-            "valid": True, 
-            "details": {
-                "id": result[0],
-                "name": result[1],
-                "type": result[2],
-                "date": result[3],
-                "status": result[4]
-            }
-        }
-    return {"valid": False, "message": "Identifiant inconnu dans le registre AURA."}
+    if cert:
+        return {"valid": True, "details": cert}
+    return {"valid": False}
+
+# --- SERVIR LE FRONTEND ---
+@app.get("/")
+async def read_index():
+    return FileResponse('index.html')
+
+app.mount("/", StaticFiles(directory="."), name="static")
