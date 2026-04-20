@@ -1,94 +1,158 @@
 import os
-import uuid
-import datetime
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+import sqlite3
 import psycopg2
-from psycopg2.extras import RealDictCursor
+import qrcode
+from datetime import datetime
+from io import BytesIO
+from fastapi import FastAPI, Form, Request, Response
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.utils import ImageReader
 
 app = FastAPI()
+templates = Jinja2Templates(directory="templates")
 
 # --- CONFIGURATION DES BASES DE DONNÉES ---
-# Render fournit 'DATABASE_URL'. Sur ton PC, on utilisera tes identifiants locaux.
-DATABASE_URL = os.environ.get('DATABASE_URL')
+DATABASE_URL = os.getenv("DATABASE_URL")
+SQLITE_DB = "backup_certificates.db"
 
-def get_db_connection():
-    if DATABASE_URL:
-        # CONNEXION RENDER (EN LIGNE)
-        return psycopg2.connect(DATABASE_URL, sslmode='require')
-    else:
-        # CONNEXION LOCALE (TON PC)
-        # Remplace 'postgres' et 'ton_mot_de_passe' par tes vrais identifiants
-        return psycopg2.connect(
-            host="localhost",
-            database="aura_db", 
-            user="postgres",
-            password="ton_mot_de_passe" 
-        )
-
-# --- INITIALISATION DE LA TABLE ---
 def init_db():
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute('''
-        CREATE TABLE IF NOT EXISTS certificates (
-            id SERIAL PRIMARY KEY,
-            cert_id TEXT UNIQUE NOT NULL,
-            name TEXT NOT NULL,
-            type TEXT NOT NULL,
-            date TEXT NOT NULL
-        )
-    ''')
-    conn.commit()
-    cur.close()
-    conn.close()
+    """Initialise les tables si elles n'existent pas"""
+    # SQLite (Local)
+    try:
+        s_conn = sqlite3.connect(SQLITE_DB)
+        s_conn.execute('''CREATE TABLE IF NOT EXISTS certificates 
+                         (id INTEGER PRIMARY KEY AUTOINCREMENT, cert_id TEXT, name TEXT, type TEXT, date TEXT)''')
+        s_conn.close()
+    except Exception as e:
+        print(f"Erreur SQLite: {e}")
+
+    # PostgreSQL (Render)
+    if DATABASE_URL:
+        try:
+            p_conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+            p_cur = p_conn.cursor()
+            p_cur.execute('''CREATE TABLE IF NOT EXISTS certificates 
+                            (id SERIAL PRIMARY KEY, cert_id TEXT UNIQUE, name TEXT, type TEXT, date TEXT)''')
+            p_conn.commit()
+            p_cur.close()
+            p_conn.close()
+        except Exception as e:
+            print(f"Erreur Postgres: {e}")
 
 init_db()
 
-# --- MODÈLES DE DONNÉES ---
-class CertificateRequest(BaseModel):
-    name: str
-    type: str
-
-# --- ROUTES API ---
-
-@app.post("/certify")
-async def create_certificate(req: CertificateRequest):
-    cert_id = f"AURA-{uuid.uuid4().hex[:8].upper()}"
-    date_str = datetime.datetime.now().strftime("%d/%m/%Y")
-    
+# --- LOGIQUE DE SAUVEGARDE ---
+def save_certificate(cert_id, name, cert_type, date):
+    # Sauvegarde SQLite
     try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute(
-            "INSERT INTO certificates (cert_id, name, type, date) VALUES (%s, %s, %s, %s)",
-            (cert_id, req.name, req.type, date_str)
-        )
-        conn.commit()
-        cur.close()
-        conn.close()
-        return {"cert_id": cert_id}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        s_conn = sqlite3.connect(SQLITE_DB)
+        s_conn.execute("INSERT INTO certificates (cert_id, name, type, date) VALUES (?, ?, ?, ?)",
+                       (cert_id, name, cert_type, date))
+        s_conn.commit()
+        s_conn.close()
+    except: pass
 
-@app.get("/verify/{cert_id}")
-async def verify_certificate(cert_id: str):
-    conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("SELECT name, type, date FROM certificates WHERE cert_id = %s", (cert_id,))
-    cert = cur.fetchone()
-    cur.close()
-    conn.close()
+    # Sauvegarde PostgreSQL
+    if DATABASE_URL:
+        try:
+            p_conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+            p_cur = p_conn.cursor()
+            p_cur.execute("INSERT INTO certificates (cert_id, name, type, date) VALUES (%s, %s, %s, %s)",
+                          (cert_id, name, cert_type, date))
+            p_conn.commit()
+            p_cur.close()
+            p_conn.close()
+        except: pass
+
+def get_cert_from_db(cert_id):
+    """Cherche un certificat dans les bases"""
+    if DATABASE_URL:
+        try:
+            p_conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+            p_cur = p_conn.cursor()
+            p_cur.execute("SELECT name, type, date FROM certificates WHERE cert_id = %s", (cert_id,))
+            res = p_cur.fetchone()
+            p_cur.close()
+            p_conn.close()
+            if res: return res
+        except: pass
     
-    if cert:
-        return {"valid": True, "details": cert}
-    return {"valid": False}
+    # Fallback sur SQLite si Postgres échoue
+    s_conn = sqlite3.connect(SQLITE_DB)
+    res = s_conn.execute("SELECT name, type, date FROM certificates WHERE cert_id = ?", (cert_id,)).fetchone()
+    s_conn.close()
+    return res
 
-# --- SERVIR LE FRONTEND ---
-@app.get("/")
-async def read_index():
-    return FileResponse('index.html')
+# --- ROUTES ---
 
-app.mount("/", StaticFiles(directory="."), name="static")
+@app.get("/", response_class=HTMLResponse)
+async def home(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+@app.post("/generate", response_class=HTMLResponse)
+async def generate(request: Request, name: str = Form(...), cert_type: str = Form(...)):
+    cert_id = f"AURA-{os.urandom(3).hex().upper()}"
+    date_str = datetime.now().strftime("%d/%m/%Y")
+    
+    save_certificate(cert_id, name, cert_type, date_str)
+    
+    return templates.TemplateResponse("result.html", {
+        "request": request, 
+        "cert_id": cert_id, 
+        "name": name, 
+        "date": date_str
+    })
+
+@app.get("/download/{cert_id}")
+async def download_pdf(cert_id: str):
+    data = get_cert_from_db(cert_id)
+    if not data:
+        return Response(content="Certificat non trouvé", status_code=404)
+    
+    name, cert_type, date = data
+    
+    # Création du PDF
+    buffer = BytesIO()
+    p = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+
+    # Design
+    p.setStrokeColorRGB(0.1, 0.4, 0.8)
+    p.rect(30, 30, width-60, height-60, stroke=1)
+    p.setFont("Helvetica-Bold", 35)
+    p.drawCentredString(width/2, height-120, "AURA TRUST")
+    p.setFont("Helvetica", 20)
+    p.drawCentredString(width/2, height-170, "CERTIFICAT D'INTÉGRITÉ")
+    
+    p.setFont("Helvetica", 16)
+    p.drawCentredString(width/2, height-280, "Ce document est délivré à :")
+    p.setFont("Helvetica-Bold", 26)
+    p.drawCentredString(width/2, height-330, name.upper())
+    
+    p.setFont("Helvetica", 14)
+    p.drawCentredString(width/2, height-400, f"Pour le motif de : {cert_type}")
+    p.drawString(100, 150, f"Date : {date}")
+    p.drawString(100, 130, f"ID de vérification : {cert_id}")
+
+    # QR Code
+    qr_url = f"https://aura-trust.onrender.com/verify/{cert_id}"
+    qr = qrcode.make(qr_url)
+    qr_buffer = BytesIO()
+    qr.save(qr_buffer, format='PNG')
+    qr_buffer.seek(0)
+    p.drawImage(ImageReader(qr_buffer), width-180, 80, width=120, height=120)
+    p.setFont("Helvetica", 8)
+    p.drawRightString(width-70, 70, "Scannez pour vérifier l'authenticité")
+
+    p.showPage()
+    p.save()
+    buffer.seek(0)
+    
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=Certificat_AURA_{cert_id}.pdf"}
+    )
