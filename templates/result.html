@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Certificat Prêt !</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 50px; background: #e9ecef; }
+        .box { background: white; padding: 40px; border-radius: 15px; display: inline-block; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        .btn-pdf { background: #28a745; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; display: inline-block; margin-top: 20px; font-weight: bold; }
+        .id-badge { background: #eee; padding: 5px 10px; border-radius: 4px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1>✅ Félicitations !</h1>
+        <p>Le certificat pour <strong>{{ name }}</strong> a été créé.</p>
+        <p>ID unique : <span class="id-badge">{{ cert_id }}</span></p>
+
+        <a href="/download/{{ cert_id }}" class="btn-pdf">
+            📥 Télécharger le Certificat (PDF)
+        </a>
+
+        <br><br>
+        <a href="/" style="color: #007bff; text-decoration: none;">← Créer un autre</a>
+    </div>
+</body>
+</html>
