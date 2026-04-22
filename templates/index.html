@@ -1,134 +1,26 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AURA Trust | Registre d'Intégrité</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&display=swap" rel="stylesheet">
+    <title>AURA Trust - Espace Admin</title>
     <style>
-        body { background-color: #030303; color: #ffffff; font-family: 'Inter', sans-serif; }
-        .gold-gradient { background: linear-gradient(90deg, #D4AF37 0%, #F2D06B 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .bg-gold { background-color: #D4AF37; }
-        .badge-glow { box-shadow: 0 0 30px rgba(212, 175, 55, 0.15); }
-        .card-glass { background: rgba(15, 15, 15, 0.8); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        body { font-family: sans-serif; text-align: center; background: #f0f2f5; padding-top: 50px; }
+        .box { background: white; padding: 30px; display: inline-block; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        input, select { display: block; margin: 15px auto; padding: 12px; width: 280px; border: 1px solid #ddd; border-radius: 5px; }
+        button { background: #007bff; color: white; border: none; padding: 12px 30px; cursor: pointer; border-radius: 5px; font-weight: bold; }
     </style>
 </head>
-<body class="antialiased pb-20">
-
-    <nav class="p-8 flex justify-between items-center max-w-7xl mx-auto">
-        <div class="text-2xl font-black tracking-tighter italic uppercase">AURA <span class="gold-gradient">TRUST</span></div>
-        <div class="hidden sm:flex items-center gap-4">
-            <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-            <span class="text-[10px] uppercase tracking-widest text-gray-500">Registre Actif</span>
-        </div>
-    </nav>
-
-    <header class="text-center mt-8 mb-16 px-4">
-        <h1 class="text-4xl md:text-6xl font-black tracking-tight mb-4 uppercase">Le Standard de la <span class="gold-gradient italic">Confiance</span></h1>
-        <p class="text-gray-500 text-[10px] md:text-xs uppercase tracking-[0.3em]">Accréditations certifiées en temps réel</p>
-    </header>
-
-    <main class="max-w-6xl mx-auto px-6 grid lg:grid-cols-2 gap-8">
-        
-        <div class="card-glass p-8 md:p-10 rounded-3xl border border-white/5">
-            <h2 class="text-[10px] font-bold mb-8 uppercase tracking-[0.3em] text-gray-500">Service d'Émission</h2>
-            
-            <div class="space-y-6">
-                <div>
-                    <label class="block text-[9px] uppercase tracking-widest text-gray-600 mb-2 font-bold">Entité à certifier</label>
-                    <input type="text" id="entityName" placeholder="NOM DU PROJET" 
-                           class="w-full bg-white/5 border border-white/10 p-4 rounded-xl text-white focus:border-gold outline-none transition-all font-semibold placeholder:text-gray-700">
-                </div>
-                
-                <button onclick="lancerCertification()" id="btnCertify" 
-                        class="w-full bg-gold text-black font-black py-5 rounded-xl hover:scale-[1.01] transition-all uppercase tracking-widest text-xs shadow-lg shadow-gold/10">
-                    Signer l'Accréditation
-                </button>
-            </div>
-
-            <div id="genResult" class="hidden mt-8 p-6 rounded-xl bg-green-500/5 border border-green-500/20 text-center">
-                <p class="text-[9px] text-green-500 font-bold uppercase mb-2 tracking-widest">Enregistré avec succès</p>
-                <p id="newCertId" class="font-mono text-xl font-bold tracking-tighter text-white"></p>
-            </div>
-        </div>
-
-        <div class="card-glass p-8 md:p-10 rounded-3xl border border-white/5">
-            <h2 class="text-[10px] font-bold mb-8 uppercase tracking-[0.3em] text-gray-500">Interrogateur de Registre</h2>
-            
-            <div class="flex flex-col sm:flex-row gap-3">
-                <input type="text" id="searchId" placeholder="ID AURA-XXXX" 
-                       class="w-full sm:flex-1 bg-white/5 border border-white/10 p-4 rounded-xl text-white focus:border-gold outline-none transition-all font-mono placeholder:text-gray-700">
-                <button onclick="verifierCertificat()" 
-                        class="w-full sm:w-auto bg-white/10 text-white font-bold px-8 py-4 rounded-xl hover:bg-white/20 transition-all border border-white/10 uppercase text-[10px] tracking-widest">
-                    Vérifier
-                </button>
-            </div>
-
-            <div id="badgeAccreditation" class="hidden mt-8 p-6 border-2 border-gold rounded-2xl badge-glow bg-black relative">
-                <div class="flex justify-between items-start mb-8 text-gold-gradient">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
-                    <p class="text-[8px] font-bold uppercase tracking-widest pt-1">Sigma-Level Verified</p>
-                </div>
-                <div class="mb-6">
-                    <p class="text-[8px] uppercase tracking-[0.4em] text-gray-600 font-bold mb-1">Titulaire</p>
-                    <h3 id="badgeName" class="text-2xl font-black uppercase tracking-tighter truncate">---</h3>
-                </div>
-                <div class="flex justify-between items-end border-t border-white/5 pt-4">
-                    <div>
-                        <p class="text-[8px] text-gray-600 uppercase mb-1 font-bold">Délivré le</p>
-                        <p id="badgeDate" class="text-[10px] font-mono text-gray-400 font-bold">--/--/----</p>
-                    </div>
-                    <div class="text-[9px] font-bold text-green-500 uppercase tracking-widest italic">Authentique</div>
-                </div>
-            </div>
-
-            <p id="errorSearch" class="hidden mt-6 text-red-500 text-[9px] text-center font-bold uppercase tracking-widest bg-red-500/5 p-4 rounded-xl border border-red-500/20"></p>
-        </div>
-
-    </main>
-
-    <script>
-        async function lancerCertification() {
-            const name = document.getElementById('entityName').value;
-            const btn = document.getElementById('btnCertify');
-            if(!name) return alert("Nom requis");
-            btn.innerText = "TRAITEMENT...";
-            
-            try {
-                const response = await fetch('/certify', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({name: name, type: "IA SOUVERAINE"})
-                });
-                const data = await response.json();
-                document.getElementById('newCertId').innerText = data.cert_id;
-                document.getElementById('genResult').classList.remove('hidden');
-                btn.innerText = "Signer l'Accréditation";
-            } catch (e) { alert("Erreur serveur"); btn.innerText = "Réessayer"; }
-        }
-
-        async function verifierCertificat() {
-            const id = document.getElementById('searchId').value.trim();
-            const badge = document.getElementById('badgeAccreditation');
-            const error = document.getElementById('errorSearch');
-            if(!id) return;
-
-            try {
-                const response = await fetch(`/verify/${id}`);
-                const data = await response.json();
-                if(data.valid) {
-                    error.classList.add('hidden');
-                    document.getElementById('badgeName').innerText = data.details.name;
-                    document.getElementById('badgeDate').innerText = data.details.date;
-                    badge.classList.remove('hidden');
-                } else {
-                    badge.classList.add('hidden');
-                    error.innerText = "IDENTIFIANT INCONNU";
-                    error.classList.remove('hidden');
-                }
-            } catch (e) { console.error(e); }
-        }
-    </script>
+<body>
+    <div class="box">
+        <h1>🛡️ Administration AURA</h1>
+        <form action="/generate" method="post">
+            <input type="text" name="name" placeholder="Nom du client" required>
+            <select name="cert_type">
+                <option value="Certification d'Origine">Certification d'Origine</option>
+                <option value="Badge d'Intégrité">Badge d'Intégrité</option>
+            </select>
+            <input type="password" name="password" placeholder="Mot de passe secret" required>
+            <button type="submit">Générer & Encaisser</button>
+        </form>
+    </div>
 </body>
 </html>

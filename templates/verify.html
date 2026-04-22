@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Vérification AURA</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 50px; }
+        .valid { color: green; border: 2px solid green; padding: 20px; display: inline-block; border-radius: 10px; }
+        .invalid { color: red; border: 2px solid red; padding: 20px; display: inline-block; border-radius: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Vérification de Certificat</h1>
+    {% if data %}
+        <div class="valid">
+            <h2>✅ CERTIFICAT AUTHENTIQUE</h2>
+            <p>Titulaire : <strong>{{ data[0] }}</strong></p>
+            <p>Type : {{ data[1] }}</p>
+            <p>Délivré le : {{ data[2] }}</p>
+        </div>
+    {% else %}
+        <div class="invalid">
+            <h2>❌ CERTIFICAT NON RECONNU</h2>
+            <p>L'ID {{ cert_id }} ne correspond à aucun document officiel AURA.</p>
+        </div>
+    {% endif %}
+</body>
+</html>
