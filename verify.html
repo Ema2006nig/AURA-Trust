@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vérification de Certificat · AURA</title>
+    <!-- Google Fonts for a premium feel -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --text: #1e293b;
+            --valid: #059669;
+            --valid-bg: #ecfdf5;
+            --valid-border: #a7f3d0;
+            --invalid: #dc2626;
+            --invalid-bg: #fef2f2;
+            --invalid-border: #fecaca;
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.04);
+            --radius: 16px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 1rem;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 560px;
+            background: var(--surface);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            padding: 2.5rem;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #4f46e5;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #64748b;
+            font-weight: 500;
+            margin-bottom: 2rem;
+        }
+
+        .status-card {
+            padding: 2rem;
+            border-radius: 12px;
+            margin: 2rem 0 1.5rem;
+            transition: all 0.2s;
+        }
+
+        .status-card.valid {
+            background: var(--valid-bg);
+            border: 1px solid var(--valid-border);
+            color: var(--valid);
+        }
+
+        .status-card.invalid {
+            background: var(--invalid-bg);
+            border: 1px solid var(--invalid-border);
+            color: var(--invalid);
+        }
+
+        .status-card h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1.25rem;
+            color: inherit;
+            border: none;
+            letter-spacing: -0.01em;
+        }
+
+        .details {
+            text-align: left;
+            background: rgba(255,255,255,0.7);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            margin-top: 1.25rem;
+            color: var(--text);
+            font-size: 0.95rem;
+        }
+
+        .details p {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .details p:last-child {
+            border-bottom: none;
+        }
+
+        .details strong {
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .invalid-message {
+            font-size: 1rem;
+            margin-top: 0.75rem;
+            color: #7f1d1d;
+        }
+
+        .cert-id {
+            background: rgba(0,0,0,0.03);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-family: monospace;
+            font-weight: 600;
+        }
+
+        .footer-note {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin-top: 2rem;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">AURA</div>
+        <div class="subtitle">Système de vérification officielle</div>
+
+        {% if data %}
+        <div class="status-card valid">
+            <h2>✅ Certificat authentique</h2>
+            <div class="details">
+                <p><strong>Titulaire</strong> <span>{{ data[0] }}</span></p>
+                <p><strong>Type de document</strong> <span>{{ data[1] }}</span></p>
+                <p><strong>Délivré le</strong> <span>{{ data[2] }}</span></p>
+            </div>
+        </div>
+        {% else %}
+        <div class="status-card invalid">
+            <h2>❌ Certificat non reconnu</h2>
+            <p class="invalid-message">
+                L'ID <span class="cert-id">{{ cert_id }}</span> ne correspond à aucun document officiel AURA.
+            </p>
+        </div>
+        {% endif %}
+
+        <div class="footer-note">
+            Vérification en temps réel · Autorité Unique de Régulation Administrative
+        </div>
+    </div>
+</body>
+</html>
